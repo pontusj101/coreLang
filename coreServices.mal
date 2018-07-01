@@ -1,0 +1,21 @@
+include coreEncryption.mal
+
+category System {
+
+	asset AuthenticationService extends Service 
+		rationale: "Authentication service is not actively involved in account authentication (e.g. key.read leads directly to account.authenticate), because that is not needed for the attacks we are interested in."
+		{
+		| access
+				info: "If a service is tasked with authentication of accounts, its compromise leads to the compromise of the associated accounts."
+				-> _softwareAccess,
+					authenticatedAccounts.compromise
+
+	}
+
+}
+
+associations {
+   Account     [authenticatedAccounts] *     <-- AccountAuthentication  --> 0-1  [authenticationServices]   AuthenticationService
+      	info: "Conceptually, authentication is separated from access control (obvious in the case of e.g. Radius servers). authenticationServices provide the authentication service."
+
+}

@@ -1,0 +1,149 @@
+category System {
+
+	asset AuthMachine {
+		
+	| connect
+		->	_authMachineConnect	
+
+	| _authMachineConnect
+		->	authenticatedAccess,
+			connectPrivileges.compromise
+		    
+	| authenticate
+		info: "Does the attacker have the credentials of an account?"
+		->	authenticatedAccess
+
+	& authenticatedAccess
+  		info: "One way to gain access to a machine is through legitimate authentication."
+		->	access
+
+	| bypassAccessControl
+		-> access
+ 
+	| access
+		rationale: "We don't explicitly model root access; that is not a sound primitive. Instead, such an account can be modelled explicitly by providing an account with access to all executees and all data."
+		->	_authMachineAccess
+
+	| _authMachineAccess
+		->	denialOfService, 
+			data.requestAccess
+
+	| denialOfService 
+		->	data.denyAccess
+	}
+}
+
+category Communication {
+
+
+	asset Information
+		info: "Information can be stored as data and transmitted in data flows. Data and data flows are syntactic forms of the semantics represented by the Information asset. Thus, multiple data and data flow assets can contain the same information."
+	{
+	| read
+		info: "When information is read by the attacker, any associated confidentiality costs are incurred. It is sufficient that the attacker reads a single data or data flow to breach confidentiality."
+
+	& write
+		info: "When information is written by the attacker, any associated integrity costs are incurred. The attacker must, however, compromise all data and data flows in order to breach integrity. Thus, if the records of an ATM are modified, this might incur no cost as long as the master data is untouched."
+
+	& delete
+		info: "When information is deleted by the attacker, any associated availability costs are incurred. The attacker must, however, delete all data and data flows in order to breach integrity. Thus, if malware wipes a hard drive, this might incur no cost as long as a backup is easily accessible."
+	}
+
+
+	asset AuthData
+		info: "Data is a concrete, syntactic representation of Information at rest."
+	{
+	| requestAccess  
+		info: "When stored on a machine, access control needs to be granted."
+		-> authenticatedRead,
+			authenticatedWrite,
+			authenticatedDelete
+
+	| anyAccountRead 
+		info: "A single account with read privileges (in conjuction with data access) is enough to read the data."
+		-> authenticatedRead
+
+	| anyAccountWrite
+		info: "A single account with write privileges (in conjuction with data access) is enough to write the data."
+		-> authenticatedWrite
+
+	| anyAccountDelete
+		info: "A single account with delete privileges (in conjuction with data access) is enough to delete the data."
+		-> authenticatedDelete
+
+	& authenticatedRead
+		info: "Access and authentication will allow reading of data."
+		-> read
+
+	& authenticatedWrite
+		info: "Access and authentication will allow writing of data."
+		-> write
+
+	& authenticatedDelete
+		info: "Access and authentication will allow deleting of data."
+		-> delete
+
+	| read
+		info: "An attacker that reads the data, learns the encoded information."
+		-> information.read,
+			containedData.read
+
+	| write
+		-> delete,
+			information.write,
+			containedData.write
+
+	| delete
+		info: "Deletion of data leads to information loss only if there is no untouched copy elsewhere. If data is transmitted through data flows, those data flows will also
+ be affected by the tampering."
+		-> information.delete,
+			containedData.delete
+
+	| denyAccess
+		info: "Denial-of-service attacks can make data unavailable."
+	}
+
+}
+
+category Security {
+
+	asset Account {
+
+	|	compromise
+		-> accessedMachines.authenticate, 
+			readData.anyAccountRead,
+			writtenData.anyAccountWrite,
+			deletedData.anyAccountDelete,
+			authenticatees.compromise
+
+	}
+
+	asset Credentials extends AuthData {
+	    | read
+	    	-> 	accounts.compromise
+	}
+}
+
+category People {
+	asset User {
+	| compromise
+		->	accounts.compromise
+	}
+}
+
+associations {
+	Account 		[accounts]			  		*		<-- AccessPrivileges			--> *		[accessedMachines]			AuthMachine
+			info: "These accounts grant access the the machine."
+	Account 		[connectPrivileges] 		*		<-- ConnectionPrivilees		--> *		[connectMachines]				AuthMachine
+			info: "These privileges are granted to anyone who connects to a machine."
+	Account 		[authenticators]			*		<-- Authentication			--> *		[authenticatees]	 			Account
+	Account 		[accounts]					*  	<-- Credentials				--> *		[credentials] 					Credentials
+	Account 		[readingAccounts]			*  	<-- Read							--> *		[readData] 						AuthData
+	Account 		[writingAccounts]			*  	<-- Write						--> *		[writtenData] 					AuthData
+	Account 		[deletingAccounts]		*  	<-- Delete						--> *		[deletedData] 					AuthData
+	AuthData		[data] 						*		<-- Representation 			--> 0-1	[information] 					Information
+			info: "The data constitutes a syntactic representation at rest of the information."
+	AuthData		[data] 						*		<-- Storage 					--> *		[machines]						AuthMachine
+	AuthData		[containingData] 			*		<-- Containment 				--> *		[containedData] 				AuthData
+	User 			[users]						*  	<-- UserAccount 				--> *		[accounts]						Account
+}

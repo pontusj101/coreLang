@@ -1,0 +1,39 @@
+include coreSoftware.mal
+
+category Communication {
+
+   asset CoreEncryptedData extends AuthData
+      info: "Data is a concrete, syntactic representation of Information at rest."
+   {
+
+   & authenticatedRead
+      info: "Access and authentication will allow reading of data."
+      -> readEncrypted
+
+   & authenticatedWrite
+      info: "Access and authentication will allow writing of data."
+      -> writeEncrypted
+
+	& readEncrypted
+		->	read
+
+	& writeEncrypted
+		-> write
+	}
+}
+
+category Security {
+
+   asset CryptographicKey extends AuthData {
+       | read
+         -> decryptedData.readEncrypted,
+				encryptedData.writeEncrypted
+
+	}
+}
+
+
+associations {
+   CoreEncryptedData	[decryptedData]	*	<-- Decryption	-->	*	[decryptionKeys]	CryptographicKey
+   CoreEncryptedData	[encryptedData]	*	<-- Encryption	-->	*	[encryptionKeys]	CryptographicKey
+}

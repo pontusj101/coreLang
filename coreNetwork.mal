@@ -1,0 +1,108 @@
+include coreServices.mal
+
+category System {
+
+	asset NetworkClient extends Client {
+		| access
+			->	_softwareAccess,
+				dataflows.request
+	}
+
+	asset NetworkService extends Service {
+		| access
+			->	_softwareAccess,
+				dataflows.respond
+	}
+
+
+}
+
+category Networking {
+	asset Network
+		info: "Networks include Ethernet LANs, the Internet, and Wifi networks."
+	    { 	
+		| access
+				info: "Access implies the possibility to submit packets over the network. It does not imply the possibility to listen to others' traffic on the network. You are outside the router but with a possibility to communicate in to the network."
+				-> trafficRouters.forwarding, 
+					denialOfService,
+					service.connect
+  
+		| eavesdrop
+				info: "Attackers can sometimes eavesdrop."
+				-> 	dataflows.eavesdrop
+
+		| manInTheMiddle
+					info: "Attackers can sometimes intercept and tamper with communications."
+				-> 	access,
+						eavesdrop,
+						dataflows.manInTheMiddle,
+						trafficRouters.denialOfService
+	
+		| denialOfService
+				info: "The network is made unavailable."
+				-> 	dataflows.denialOfService 
+	}
+
+    
+	asset Router extends NetworkService {
+
+		& access 
+				-> 	_softMachineAccess,
+						trafficNetworks.manInTheMiddle,
+						forwarding
+
+		| forwarding 
+				rationale: "Forwarding is the lightest interaction with the router, where the router simply retransmits received messages. Vulnerabilities may, however, lead to compromise of the router as well as of the associated firewall. Therefore, Forwarding leads to Connect."
+				-> 	connect
+
+		| denialOfService 
+				-> 	trafficNetworks.denialOfService	
+	}
+}
+
+
+category Communication {
+
+	asset Dataflow
+	info: "Dataflow is a channel that contains Data in transit."
+	rationale: "As opposed to securiLang1, missing network paths cannot stop modelled dataflows. If there is a dataflow but no network infrastructure to support it, this logic will assume that the unmodelled infrastructure exists."
+	{
+		| eavesdrop
+				info: "An attacker that eavesdrops on the data flow, can access the contained data. That data may, in turn, be encrypted, thus preventing a breach of confidentiality."
+				->	data.read
+
+		| manInTheMiddle
+				info: "An attacker that man-in-the-middles the data flow, can control the contained data. That data may, in turn, be encrypted and authenticated, thus preventing a breach of confidentiality and integrity."
+				->	eavesdrop, 
+					denialOfService, 
+					request,
+					respond,
+					data.write, 
+					data.read, 
+					data.delete
+
+		| denialOfService
+				info: "A denial-of-service-attack on the dataflow makes the contained data inaccessible. The information may, however also be available elsewhere."
+				->	data.delete
+
+		| request
+				->	services.connect
+
+		| respond
+				->	clients.connect,
+					executingClients.access
+	}
+}
+
+associations {
+	Network 	[trafficNetworks]				* 		<-- Connection 							--> * 	[trafficRouters]		Router
+	Network 	[networks]						* 		<-- Communication 						--> *		[dataflows] 			Dataflow
+	Network 	[networks]						* 		<-- Listening		 						--> *		[service]	 			NetworkService
+	Dataflow	[dataflows]						* 		<-- Request									--> *		[clients]				NetworkClient
+	Dataflow	[dataflows]						* 		<-- Response								--> *		[services]				NetworkService
+	Dataflow	[programDistributionFlow]	* 		<-- ProgramDistributionToClient		--> *		[executingClients] 	NetworkClient
+		info: "Some servers distribute programs to clients, e.g. software updates, or Web applications."
+	Dataflow	[programDistributionFlow]	* 		<-- ProgramDistributionFromServer	--> *		[providingServices]	NetworkService
+		info: "Some servers distribute programs to clients, e.g. software updates, or Web applications."
+	Dataflow	[dataflow]						0-1	<-- Transmission							--> 0-1	[data]					AuthData
+}

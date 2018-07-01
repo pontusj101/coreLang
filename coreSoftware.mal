@@ -1,0 +1,42 @@
+include coreVulnerability.mal
+
+category System {
+
+	asset SoftMachine extends VulnMachine {
+
+	| access
+      rationale: "We don't explicitly model root access; that is not a sound primitive. Instead, such an account can be modelled explicitly by providing an account with access to all executees and all data."
+      -> _softMachineAccess
+
+   | _softMachineAccess
+      -> _vulnMachineAccess,
+         executees.connect
+
+	 | denialOfService
+      -> executees.denialOfService,
+         data.denyAccess
+	}
+
+	asset Software extends SoftMachine {
+	| access
+		->	_softwareAccess
+
+	|	_softwareAccess
+		->	_softMachineAccess,
+			executor.connect
+	}
+
+
+	asset Service extends Software {
+	}
+
+	asset Client extends Software {
+	}
+}
+
+associations {
+	VulnMachine	[executor]					0-1	<-- Execution					--> *		[executees]						Software
+	Account 		[assignedAccounts]		1-* 	<-- Assignment					--> *		[assignedSoftwares] 			Software
+			info: "Software needs to be granted certain privileges when executing on a platform. When the software is compromised, the attacker gains its privileges on the platform."
+
+}
