@@ -66,8 +66,7 @@
       .append("svg:path")
       .attr("d", "M0,-5L10,0L0,5");
 
-
-    d3.json("lib/modelingInterface.json", function(error, json) {
+    d3.json("target/generated-sources/modelingInterface.json", function(error, json) {
       if (error) throw error;
       root = json;
       initialize(root)
